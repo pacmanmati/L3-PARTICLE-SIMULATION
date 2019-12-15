@@ -182,46 +182,50 @@ void updateBody() {
   maxV   = 0.0;
   minDx  = std::numeric_limits<double>::max();
 
-  // force0 = force along x direction
-  // force1 = force along y direction
-  // force2 = force along z direction
-  double* force0 = new double[NumberOfBodies];
-  double* force1 = new double[NumberOfBodies];
-  double* force2 = new double[NumberOfBodies];
+  double* force0 = new double[NumberOfBodies]; // force along x direction
+  double* force1 = new double[NumberOfBodies]; // force along y direction
+  double* force2 = new double[NumberOfBodies]; // force along z direction
 
-  force0[0] = 0.0;
-  force1[0] = 0.0;
-  force2[0] = 0.0;
-
-  for (int i=1; i<NumberOfBodies; i++) {
-    const double distance = sqrt(
-      (x[0][0]-x[i][0]) * (x[0][0]-x[i][0]) +
-      (x[0][1]-x[i][1]) * (x[0][1]-x[i][1]) +
-      (x[0][2]-x[i][2]) * (x[0][2]-x[i][2])
-    );
-
-    // x,y,z forces acting on particle 0
-    force0[0] += (x[i][0]-x[0][0]) * mass[i]*mass[0] / distance / distance / distance ;
-    force1[0] += (x[i][1]-x[0][1]) * mass[i]*mass[0] / distance / distance / distance ;
-    force2[0] += (x[i][2]-x[0][2]) * mass[i]*mass[0] / distance / distance / distance ;
-
-    minDx = std::min( minDx,distance );
+  // zero all the forces
+  for (int i = 0; i < NumberOfBodies; i++) {
+    force0[i] = 0.0;
+    force1[i] = 0.0;
+    force2[i] = 0.0;
   }
 
-  x[0][0] = x[0][0] + timeStepSize * v[0][0];
-  x[0][1] = x[0][1] + timeStepSize * v[0][1];
-  x[0][2] = x[0][2] + timeStepSize * v[0][2];
+  for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
+    for (int i = 0; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
+      if (i == j) continue; // skip working out the effects of a particle on itself, reduntant calculation
 
-  // These are three buggy lines of code that we will use in one of the labs
-//  x[0][3] = x[0][2] + timeStepSize * v[0][2];
-//  x[0][2] = x[0][2] + timeStepSize * v[0][2] / 0.0;
-//  x[50000000][1] = x[0][2] + timeStepSize * v[0][2] / 0.0;
+      // the distance between the jth particle and the ith particle
+      const double distance = sqrt(
+				   (x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) +
+				   (x[j][1]-x[i][1]) * (x[j][1]-x[i][1]) +
+				   (x[j][2]-x[i][2]) * (x[j][2]-x[i][2])
+				   );
 
-  v[0][0] = v[0][0] + timeStepSize * force0[0] / mass[0];
-  v[0][1] = v[0][1] + timeStepSize * force1[0] / mass[0];
-  v[0][2] = v[0][2] + timeStepSize * force2[0] / mass[0];
+      // x,y,z forces acting on particle j
+      force0[j] += (x[i][0]-x[j][0]) * mass[i]*mass[j] / distance / distance / distance ;
+      force1[j] += (x[i][1]-x[j][1]) * mass[i]*mass[j] / distance / distance / distance ;
+      force2[j] += (x[i][2]-x[j][2]) * mass[i]*mass[j] / distance / distance / distance ;
 
-  maxV = std::sqrt( v[0][0]*v[0][0] + v[0][1]*v[0][1] + v[0][2]*v[0][2] );
+      minDx = std::min( minDx,distance );
+    }
+  }
+
+  for (int i = 0; i < NumberOfBodies; i++) {
+    x[i][0] = x[i][0] + timeStepSize * v[i][0];
+    x[i][1] = x[i][1] + timeStepSize * v[i][1];
+    x[i][2] = x[i][2] + timeStepSize * v[i][2];
+
+    /* int massi = mass[i] // see if this makes a difference, the compiler should optimise it */
+
+    v[i][0] = v[i][0] + timeStepSize * force0[i] / mass[i];
+    v[i][1] = v[i][1] + timeStepSize * force1[i] / mass[i];
+    v[i][2] = v[i][2] + timeStepSize * force2[i] / mass[i];
+
+    maxV = std::sqrt( v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2] );
+  }
 
   t += timeStepSize;
 
