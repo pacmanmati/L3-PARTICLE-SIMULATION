@@ -11,7 +11,6 @@
 // to see something meaningful.
 //
 // (C) 2018-2019 Tobias Weinzierl
-
 #include <fstream>
 #include <sstream>
 #include <iostream>
@@ -20,45 +19,17 @@
 #include <limits>
 #include <iomanip>
 
-
 double t          = 0;
 double tFinal     = 0;
 double tPlot      = 0;
 double tPlotDelta = 0;
-
 int NumberOfBodies = 0;
-
-/**
- * Pointer to pointers. Each pointer in turn points to three coordinates, i.e.
- * each pointer represents one molecule/particle/body.
- */
-double** x;
-
-/**
- * Equivalent to x storing the velocities.
- */
-double** v;
-
-/**
- * One mass entry per molecule/particle.
- */
-double*  mass;
-
-/**
- * Global time step size used.
- */
-double   timeStepSize = 0.0;
-
-/**
- * Maximum velocity of all particles.
- */
-double   maxV;
-
-/**
- * Minimum distance between two elements.
- */
-double   minDx;
-
+double** x; // Pointer to pointers. Each pointer in turn points to three coordinates, i.e. each pointer represents one molecule/particle/body.
+double** v; //  Equivalent to x storing the velocities.
+double*  mass; // One mass entry per molecule/particle.
+double   timeStepSize = 0.0; // Global time step size used.
+double   maxV; // Maximum velocity of all particles.
+double   minDx; // Minimum distance between two elements.
 
 /**
  * Set up scenario from the command line.
@@ -110,10 +81,7 @@ void setUp(int argc, char** argv) {
   }
 }
 
-
 std::ofstream videoFile;
-
-
 /**
  * This operation is not to be changed in the assignment.
  */
@@ -124,10 +92,6 @@ void openParaviewVideoFile() {
             << "<Collection>";
 }
 
-
-
-
-
 /**
  * This operation is not to be changed in the assignment.
  */
@@ -135,7 +99,6 @@ void closeParaviewVideoFile() {
   videoFile << "</Collection>"
             << "</VTKFile>" << std::endl;
 }
-
 
 /**
  * The file format is documented at http://www.vtk.org/wp-content/uploads/2015/04/file-formats.pdf
@@ -154,7 +117,6 @@ void printParaviewSnapshot() {
       << "  <Points>" << std::endl
       << "   <DataArray type=\"Float64\" NumberOfComponents=\"3\" format=\"ascii\">";
 //      << "   <DataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\">";
-
   for (int i=0; i<NumberOfBodies; i++) {
     out << x[i][0]
         << " "
@@ -163,7 +125,6 @@ void printParaviewSnapshot() {
         << x[i][2]
         << " ";
   }
-
   out << "   </DataArray>" << std::endl
       << "  </Points>" << std::endl
       << " </Piece>" << std::endl
@@ -172,8 +133,6 @@ void printParaviewSnapshot() {
 
   videoFile << "<DataSet timestep=\"" << counter << "\" group=\"\" part=\"0\" file=\"" << filename.str() << "\"/>" << std::endl;
 }
-
-
 
 /**
  * This is the only operation you are allowed to change in the assignment.
@@ -186,7 +145,7 @@ void updateBody() {
   double* force1 = new double[NumberOfBodies]; // force along y direction
   double* force2 = new double[NumberOfBodies]; // force along z direction
 
-  // zero all the forces
+  // zero all the forces every iteration
   for (int i = 0; i < NumberOfBodies; i++) {
     force0[i] = 0.0;
     force1[i] = 0.0;
@@ -196,20 +155,16 @@ void updateBody() {
   for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
     for (int i = 0; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
       if (i == j) continue; // skip working out the effects of a particle on itself, reduntant calculation
-
       // the distance between the jth particle and the ith particle
-      const double distance = sqrt(
-				   (x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) +
+      const double distance = sqrt((x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) +
 				   (x[j][1]-x[i][1]) * (x[j][1]-x[i][1]) +
-				   (x[j][2]-x[i][2]) * (x[j][2]-x[i][2])
-				   );
-
+				   (x[j][2]-x[i][2]) * (x[j][2]-x[i][2]));
       // x,y,z forces acting on particle j
       force0[j] += (x[i][0]-x[j][0]) * mass[i]*mass[j] / distance / distance / distance ;
       force1[j] += (x[i][1]-x[j][1]) * mass[i]*mass[j] / distance / distance / distance ;
       force2[j] += (x[i][2]-x[j][2]) * mass[i]*mass[j] / distance / distance / distance ;
-
-      minDx = std::min( minDx,distance );
+      // save minDx
+      minDx = std::min(minDx, distance);
     }
   }
 
