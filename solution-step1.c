@@ -141,6 +141,8 @@ void updateBody() {
   maxV   = 0.0;
   minDx  = std::numeric_limits<double>::max();
 
+  double* distances = new double[(NumberOfBodies * (NumberOfBodies - 1)) / 2];
+
   double* force0 = new double[NumberOfBodies]; // force along x direction
   double* force1 = new double[NumberOfBodies]; // force along y direction
   double* force2 = new double[NumberOfBodies]; // force along z direction
@@ -152,13 +154,25 @@ void updateBody() {
     force2[i] = 0.0;
   }
 
+  int distStore = 0;
+  int distFetch = 0;
+
   for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
     for (int i = 0; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
       if (i == j) continue; // skip working out the effects of a particle on itself, reduntant calculation
-      // the distance between the jth particle and the ith particle
-      const double distance = sqrt((x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) +
-				   (x[j][1]-x[i][1]) * (x[j][1]-x[i][1]) +
-				   (x[j][2]-x[i][2]) * (x[j][2]-x[i][2]));
+      double distance;
+      if (i < j) {
+	// if i < j then we have already cached the result
+	distance = distances[distFetch];
+	distFetch++;
+      } else {
+	// uncached: find distance between the jth and ith particle
+	distance = sqrt((x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) +
+				     (x[j][1]-x[i][1]) * (x[j][1]-x[i][1]) +
+				     (x[j][2]-x[i][2]) * (x[j][2]-x[i][2]));
+	distances[distStore] = distance;
+	distStore++;
+      }
       // x,y,z forces acting on particle j
       force0[j] += (x[i][0]-x[j][0]) * mass[i]*mass[j] / distance / distance / distance ;
       force1[j] += (x[i][1]-x[j][1]) * mass[i]*mass[j] / distance / distance / distance ;
