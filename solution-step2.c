@@ -149,59 +149,6 @@ void updateBody() {
 
   double diameter = 0.2;
 
-  // check if a collision occured
-  for (int i = 0; i < NumberOfBodies;  i++) {
-    for (int j = 0; j < NumberOfBodies; j++) {
-      if (i == j) continue; // skip same comparison
-      /* std::cout << "distance on x: " << std::abs(x[i][0] - x[j][0]) << "diameter: " << diameter << std::endl; */
-      // check if bodies will collide
-      if (std::abs(x[i][0] - x[j][0]) < diameter &&
-	  std::abs(x[i][1] - x[j][1]) < diameter &&
-	  std::abs(x[i][2] - x[j][2]) < diameter) {
-	/* std::cout << "ja ja collision" << std::endl; */
-	int first, last;
-	if (i < j) {
-	  first = i;
-	  last = j;
-	} else {
-	  first = j;
-	  last = i;
-	}
-	// update velocity and position of the first index particle
-	v[first][0] = v[i][0]*mass[i]/(mass[i]+mass[j]) +
-	  v[j][0]*mass[j]/(mass[i]+mass[j]);
-	v[first][1] = v[i][1]*mass[i]/(mass[i]+mass[j]) +
-	  v[j][1]*mass[j]/(mass[i]+mass[j]);
-	v[first][2] = v[i][2]*mass[i]/(mass[i]+mass[j]) +
-	  v[j][2]*mass[j]/(mass[i]+mass[j]);
-	
-	x[first][0]= x[i][0]*mass[i]/(mass[i]+mass[j]) +
-	  x[j][0]*mass[j]/(mass[i]+mass[j]);
-	x[first][1]= x[i][1]*mass[i]/(mass[i]+mass[j]) +
-	  x[j][1]*mass[j]/(mass[i]+mass[j]);
-	x[first][2] = x[i][2]*mass[i]/(mass[i]+mass[j]) +
-	  x[j][2]*mass[j]/(mass[i]+mass[j]);
-	
-	mass[first] += mass[last];
-	// shift values s.t. positions, masses and velocities are maintained, allowing for safe removal of the redundant particle
-	for (int k = last+1; k < NumberOfBodies; k++) {
-	  v[k-1] = v[k];
-	  x[k-1][0] = x[k][0];
-	  x[k-1][1] = x[k][1];
-	  x[k-1][2] = x[k][2];
-	  mass[k-1] = mass[k];
-	}
-	NumberOfBodies--;
-      }
-    }
-  }
-
-  // if we're on the last particle
-  if (NumberOfBodies == 1) {
-    std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
-    std::exit(0);
-  }
-
   // zero all the forces every iteration
   for (int i = 0; i < NumberOfBodies; i++) {
     force0[i] = 0.0;
@@ -211,9 +158,10 @@ void updateBody() {
 
   int distStore = 0;
   int distFetch = 0;
-
-  for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
-    for (int i = 0; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
+  // work out the jth particles forces
+  for (int j = 0; j < NumberOfBodies; j++) { 
+    // iterate over (i-1) other particles
+    for (int i = 0; i < NumberOfBodies; i++) { 
       if (i == j) continue; // skip calculating particle's force on itself
       double distance;
       // if i < j then we have already cached the result
@@ -228,6 +176,42 @@ void updateBody() {
 	distances[distStore] = distance;
 	distStore++;
       }
+      // check for collisions
+      if (distance < diameter) {
+	int first, last;
+  	if (i < j) {
+  	  first = i;
+  	  last = j;
+  	} else {
+  	  first = j;
+  	  last = i;
+  	}
+  	// update velocity and position of the first index particle
+  	v[first][0] = v[i][0]*mass[i]/(mass[i]+mass[j]) +
+  	  v[j][0]*mass[j]/(mass[i]+mass[j]);
+  	v[first][1] = v[i][1]*mass[i]/(mass[i]+mass[j]) +
+  	  v[j][1]*mass[j]/(mass[i]+mass[j]);
+  	v[first][2] = v[i][2]*mass[i]/(mass[i]+mass[j]) +
+  	  v[j][2]*mass[j]/(mass[i]+mass[j]);
+  	x[first][0]= x[i][0]*mass[i]/(mass[i]+mass[j]) +
+  	  x[j][0]*mass[j]/(mass[i]+mass[j]);
+  	x[first][1]= x[i][1]*mass[i]/(mass[i]+mass[j]) +
+  	  x[j][1]*mass[j]/(mass[i]+mass[j]);
+  	x[first][2] = x[i][2]*mass[i]/(mass[i]+mass[j]) +
+  	  x[j][2]*mass[j]/(mass[i]+mass[j]);
+  	mass[first] += mass[last];
+  	// shift values s.t. positions, masses and velocities are maintained, allowing for safe removal of the redundant particle
+  	for (int k = last+1; k < NumberOfBodies; k++) {
+  	  v[k-1] = v[k];
+  	  x[k-1][0] = x[k][0];
+  	  x[k-1][1] = x[k][1];
+  	  x[k-1][2] = x[k][2];
+  	  mass[k-1] = mass[k];
+  	}
+	NumberOfBodies--;
+      }
+      }
+
       // x,y,z forces acting on particle j
       force0[j] += (x[i][0]-x[j][0]) * mass[i]*mass[j] / distance / distance / distance;
       force1[j] += (x[i][1]-x[j][1]) * mass[i]*mass[j] / distance / distance / distance;
@@ -235,6 +219,12 @@ void updateBody() {
       // save minDx
       minDx = std::min(minDx, distance);
     }
+  }
+
+  // if we're on the last particle
+  if (NumberOfBodies == 1) {
+    std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
+    std::exit(0);
   }
 
   // update position of every particle using velocity
@@ -306,13 +296,13 @@ int main(int argc, char** argv) {
     timeStepCounter++;
     if (t >= tPlot) {
       printParaviewSnapshot();
-      /* std::cout << "plot next snapshot" */
-      /* 		    << ",\t time step=" << timeStepCounter */
-      /* 		    << ",\t t="         << t */
-      /* 				<< ",\t dt="        << timeStepSize */
-      /* 				<< ",\t v_max="     << maxV */
-      /* 				<< ",\t dx_min="    << minDx */
-      /* 				<< std::endl; */
+      std::cout << "plot next snapshot"
+      		    << ",\t time step=" << timeStepCounter
+      		    << ",\t t="         << t
+      				<< ",\t dt="        << timeStepSize
+      				<< ",\t v_max="     << maxV
+      				<< ",\t dx_min="    << minDx
+      				<< std::endl;
 
       tPlot += tPlotDelta;
     }
