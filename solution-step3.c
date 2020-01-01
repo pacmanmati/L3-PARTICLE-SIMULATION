@@ -165,7 +165,7 @@ void updateBody() {
   // for each particle
   for (int p = 0; p < NumberOfBodies; p++) {
     // do this instruction particleInBucket[p] times
-    oldTimeStepSize = timeStepSize;
+    double oldTimeStepSize = timeStepSize;
     timeStepSize /= particleInBucket[p];
     for (int iter = 0; iter < particleInBucket[p]; iter++) {
       int distStore = 0;
@@ -245,6 +245,8 @@ void updateBody() {
       for (int dim = 0; dim < 3; dim++) delete[] forces[dim];
       delete[] forces;
     }
+    
+    timeStepSize = oldTimeStepSize;
   }
 }
 
