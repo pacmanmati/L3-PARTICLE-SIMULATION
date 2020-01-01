@@ -142,22 +142,21 @@ void updateBody() {
   minDx  = std::numeric_limits<double>::max();
 
   double* distances = new double[(NumberOfBodies * (NumberOfBodies - 1)) / 2];
+  double **forces = new double*[3]; // each array within this pointer stores forces (array) in a direction [x, y, z]
 
-  double* force0 = new double[NumberOfBodies]; // force along x direction
-  double* force1 = new double[NumberOfBodies]; // force along y direction
-  double* force2 = new double[NumberOfBodies]; // force along z direction
+  // appending empty () to the new operator initialises data
+  for (int dim = 0; dim < 3; dim++) forces[dim] = new double[NumberOfBodies]();
 
   double diameter = 0.2;
 
   // zero all the forces every iteration
-  for (int i = 0; i < NumberOfBodies; i++) {
-    force0[i] = 0.0;
-    force1[i] = 0.0;
-    force2[i] = 0.0;
-  }
+  // this is done because the 'new' operator isn't guaranteed to zero anything
+  /* for (int i = 0; i < NumberOfBodies; i++) */
+  /*   for (int dim = 0; dim < 3; dim++) forces[dim][i] = 0.0; */
 
   int distStore = 0;
   int distFetch = 0;
+  
   // work out the jth particles forces
   for (int j = 0; j < NumberOfBodies; j++) { 
     // iterate over (i-1) other particles
@@ -176,7 +175,10 @@ void updateBody() {
 	distances[distStore] = distance;
 	distStore++;
       }
+      
+      //
       // check for collisions
+      //
       if (distance < diameter) {
 	int first, last;
   	if (i < j) {
@@ -187,18 +189,10 @@ void updateBody() {
   	  last = i;
   	}
   	// update velocity and position of the first index particle
-  	v[first][0] = v[i][0]*mass[i]/(mass[i]+mass[j]) +
-  	  v[j][0]*mass[j]/(mass[i]+mass[j]);
-  	v[first][1] = v[i][1]*mass[i]/(mass[i]+mass[j]) +
-  	  v[j][1]*mass[j]/(mass[i]+mass[j]);
-  	v[first][2] = v[i][2]*mass[i]/(mass[i]+mass[j]) +
-  	  v[j][2]*mass[j]/(mass[i]+mass[j]);
-  	x[first][0]= x[i][0]*mass[i]/(mass[i]+mass[j]) +
-  	  x[j][0]*mass[j]/(mass[i]+mass[j]);
-  	x[first][1]= x[i][1]*mass[i]/(mass[i]+mass[j]) +
-  	  x[j][1]*mass[j]/(mass[i]+mass[j]);
-  	x[first][2] = x[i][2]*mass[i]/(mass[i]+mass[j]) +
-  	  x[j][2]*mass[j]/(mass[i]+mass[j]);
+	for (int dim = 0; dim < 3; dim++) v[first][dim] = v[i][dim]*mass[i]/(mass[i]+mass[j]) +
+  	  v[j][dim]*mass[j]/(mass[i]+mass[j]);
+  	for (int dim = 0; dim < 3; dim++) x[first][dim]= x[i][dim]*mass[i]/(mass[i]+mass[j]) +
+  	  x[j][dim]*mass[j]/(mass[i]+mass[j]);
   	mass[first] += mass[last];
   	// shift values s.t. positions, masses and velocities are maintained, allowing for safe removal of the redundant particle
   	for (int k = last+1; k < NumberOfBodies; k++) {
@@ -210,12 +204,9 @@ void updateBody() {
   	}
 	NumberOfBodies--;
       }
-      }
 
       // x,y,z forces acting on particle j
-      force0[j] += (x[i][0]-x[j][0]) * mass[i]*mass[j] / distance / distance / distance;
-      force1[j] += (x[i][1]-x[j][1]) * mass[i]*mass[j] / distance / distance / distance;
-      force2[j] += (x[i][2]-x[j][2]) * mass[i]*mass[j] / distance / distance / distance;
+      for (int dim = 0; dim < 3; dim++) forces[dim][j] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / distance / distance / distance;
       // save minDx
       minDx = std::min(minDx, distance);
     }
@@ -229,22 +220,15 @@ void updateBody() {
 
   // update position of every particle using velocity
   for (int i = 0; i < NumberOfBodies; i++) {
-    x[i][0] = x[i][0] + timeStepSize * v[i][0];
-    x[i][1] = x[i][1] + timeStepSize * v[i][1];
-    x[i][2] = x[i][2] + timeStepSize * v[i][2];
-
-    v[i][0] = v[i][0] + timeStepSize * force0[i] / mass[i];
-    v[i][1] = v[i][1] + timeStepSize * force1[i] / mass[i];
-    v[i][2] = v[i][2] + timeStepSize * force2[i] / mass[i];
-
+    for (int dim = 0; dim < 3; dim++) x[i][dim] += timeStepSize * v[i][dim];
+    for (int dim = 0; dim < 3; dim++) v[i][dim] += timeStepSize * forces[dim][i] / mass[i];
     maxV = std::sqrt(v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]);
   }
 
   t += timeStepSize;
-
-  delete[] force0;
-  delete[] force1;
-  delete[] force2;
+  
+  for (int dim = 0; dim < 3; dim++) delete[] forces[dim];
+  delete[] forces;
 }
 
 
