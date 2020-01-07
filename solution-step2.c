@@ -140,97 +140,62 @@ void printParaviewSnapshot() {
 void updateBody() {
   maxV   = 0.0;
   minDx  = std::numeric_limits<double>::max();
-
-  double* distances = new double[(NumberOfBodies * (NumberOfBodies - 1)) / 2];
-  double **forces = new double*[3]; // each array within this pointer stores forces (array) in a direction [x, y, z]
-
-  // appending empty () to the new operator initialises data
-  for (int dim = 0; dim < 3; dim++) forces[dim] = new double[NumberOfBodies]();
-
-  double diameter = 0.2;
-
-  // zero all the forces every iteration
-  // this is done because the 'new' operator isn't guaranteed to zero anything
-  /* for (int i = 0; i < NumberOfBodies; i++) */
-  /*   for (int dim = 0; dim < 3; dim++) forces[dim][i] = 0.0; */
-
-  int distStore = 0;
-  int distFetch = 0;
-  
+  double **forces = new double*[NumberOfBodies]; // cleanup forces into one pointer for nicer code
+  // appending empty () to the new operator initialises with 0
+  for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3]();
+  // convention: always arr[i][dim]
+  const double diameter = 0.2;
   // work out the jth particles forces
   for (int j = 0; j < NumberOfBodies; j++) { 
-    // iterate over (i-1) other particles
-    for (int i = 0; i < NumberOfBodies; i++) { 
-      if (i == j) continue; // skip calculating particle's force on itself
-      double distance;
-      // if i < j then we have already cached the result
-      if (i < j) {
-	distance = distances[distFetch];
-	distFetch++;
-      } else {
-	// uncached: find distance between the jth and ith particle
-	distance = sqrt((x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) +
-				     (x[j][1]-x[i][1]) * (x[j][1]-x[i][1]) +
-				     (x[j][2]-x[i][2]) * (x[j][2]-x[i][2]));
-	distances[distStore] = distance;
-	distStore++;
+    // iterate over the remaining j+1->NumberOfBodies-1 particles
+    for (int i = j+1; i < NumberOfBodies; i++) {
+      double distanceSquared = 0;
+      // find distance between the jth and ith particle
+      for (int dim = 0; dim < 3; dim++) distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
+      double distance = std::sqrt(distanceSquared);
+      for (int dim = 0; dim < 3; dim++) {
+	// x,y,z force exerted on j by i
+	forces[j][dim] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / (distanceSquared * distance);
+	// we can also apply the force of i on j (the same but reversed)
+	forces[i][dim] -= forces[j][dim];
       }
-      
-      //
       // check for collisions
-      //
-      if (distance < diameter) {
-	int first, last;
-  	if (i < j) {
-  	  first = i;
-  	  last = j;
-  	} else {
-  	  first = j;
-  	  last = i;
-  	}
-  	// update velocity and position of the first index particle
-	for (int dim = 0; dim < 3; dim++) v[first][dim] = v[i][dim]*mass[i]/(mass[i]+mass[j]) +
-  	  v[j][dim]*mass[j]/(mass[i]+mass[j]);
-  	for (int dim = 0; dim < 3; dim++) x[first][dim]= x[i][dim]*mass[i]/(mass[i]+mass[j]) +
-  	  x[j][dim]*mass[j]/(mass[i]+mass[j]);
-  	mass[first] += mass[last];
-  	// shift values s.t. positions, masses and velocities are maintained, allowing for safe removal of the redundant particle
-  	for (int k = last+1; k < NumberOfBodies; k++) {
-  	  v[k-1] = v[k];
-  	  x[k-1][0] = x[k][0];
-  	  x[k-1][1] = x[k][1];
-  	  x[k-1][2] = x[k][2];
-  	  mass[k-1] = mass[k];
-  	}
-	NumberOfBodies--;
+      if (distanceSquared < diameter*diameter) {
+  	// conserve momentum
+	for (int dim = 0; dim < 3; dim++) {
+	  v[j][dim] = v[i][dim] * mass[i] / (mass[i]+mass[j]) + v[j][dim] * mass[j] / (mass[i]+mass[j]); // change in velocity as a result of fusion
+	  x[j][dim] = x[i][dim] * mass[i] / (mass[i]+mass[j]) + x[j][dim] * mass[j] / (mass[i]+mass[j]); // update the position (somewhere in the middle, depends on masses)
+	}
+  	mass[i] += mass[j]; // sum masses of collidants (is that a word? it is now)
+	// overwrite last collidant with the (NumberOfBodies-1)th particle and trim redundant particle
+	const int end = --NumberOfBodies;
+	for (int dim = 0; dim < 3; dim++) {
+	  x[i][dim] = x[end][dim];
+	  v[i][dim] = v[end][dim];
+	  forces[i][dim] = forces[end][dim];
+	}
+	mass[i] = mass[end];
+	// go back an iter to avoid overlooking a particle
+	i--;
       }
-
-      // x,y,z forces acting on particle j
-      for (int dim = 0; dim < 3; dim++) forces[dim][j] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / distance / distance / distance;
       // save minDx
       minDx = std::min(minDx, distance);
     }
   }
-
-  // if we're on the last particle
-  if (NumberOfBodies == 1) {
-    std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
-    std::exit(0);
-  }
-
-  // update position of every particle using velocity
+  // once we have all of our forces:
+  // update pos and vel of each particle
   for (int i = 0; i < NumberOfBodies; i++) {
-    for (int dim = 0; dim < 3; dim++) x[i][dim] += timeStepSize * v[i][dim];
-    for (int dim = 0; dim < 3; dim++) v[i][dim] += timeStepSize * forces[dim][i] / mass[i];
-    maxV = std::sqrt(v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]);
+    for (int dim = 0; dim < 3; dim++) {
+      x[i][dim] += timeStepSize * v[i][dim];
+      v[i][dim] += timeStepSize * forces[i][dim] / mass[i];
+    }
+    maxV = std::max(std::sqrt(v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]), maxV);
   }
-
   t += timeStepSize;
-  
-  for (int dim = 0; dim < 3; dim++) delete[] forces[dim];
+  // deallocate all of our memory to avoid leaks
+  for (int i = 0; i < NumberOfBodies; i++) delete[] forces[i];
   delete[] forces;
 }
-
 
 /**
  * Main routine.
@@ -287,12 +252,17 @@ int main(int argc, char** argv) {
       				<< ",\t v_max="     << maxV
       				<< ",\t dx_min="    << minDx
       				<< std::endl;
-
+      // if we're on the last particle
+      if (NumberOfBodies < 2) {
+	std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
+	closeParaviewVideoFile();
+	std::exit(0);
+      }
       tPlot += tPlotDelta;
     }
   }
 
-  closeParaviewVideoFile();
+  closeParaviewVideoFile();  
 
   return 0;
 }
