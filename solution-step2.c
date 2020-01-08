@@ -146,7 +146,7 @@ void updateBody() {
   // convention: always arr[i][dim]
   const double diameter = 0.2;
   // work out the jth particles forces
-  for (int j = 0; j < NumberOfBodies; j++) { 
+  for (int j = 0; j < NumberOfBodies; j++) {
     // iterate over the remaining j+1->NumberOfBodies-1 particles
     for (int i = j+1; i < NumberOfBodies; i++) {
       double distanceSquared = 0;
