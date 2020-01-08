@@ -70,7 +70,7 @@ void setUp(int argc, char** argv) {
   }
 
   std::cout << "created setup with " << NumberOfBodies << " bodies" << std::endl;
-  
+
   if (tPlotDelta<=0.0) {
     std::cout << "plotting switched off" << std::endl;
     tPlot = tFinal + 1.0;
@@ -88,8 +88,8 @@ std::ofstream videoFile;
 void openParaviewVideoFile() {
   videoFile.open( "result.pvd" );
   videoFile << "<?xml version=\"1.0\"?>" << std::endl
-            << "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\" compressor=\"vtkZLibDataCompressor\">" << std::endl
-            << "<Collection>";
+	    << "<VTKFile type=\"Collection\" version=\"0.1\" byte_order=\"LittleEndian\" compressor=\"vtkZLibDataCompressor\">" << std::endl
+	    << "<Collection>";
 }
 
 /**
@@ -97,7 +97,7 @@ void openParaviewVideoFile() {
  */
 void closeParaviewVideoFile() {
   videoFile << "</Collection>"
-            << "</VTKFile>" << std::endl;
+	    << "</VTKFile>" << std::endl;
 }
 
 /**
@@ -119,11 +119,11 @@ void printParaviewSnapshot() {
 //      << "   <DataArray type=\"Float32\" NumberOfComponents=\"3\" format=\"ascii\">";
   for (int i=0; i<NumberOfBodies; i++) {
     out << x[i][0]
-        << " "
-        << x[i][1]
-        << " "
-        << x[i][2]
-        << " ";
+	<< " "
+	<< x[i][1]
+	<< " "
+	<< x[i][2]
+	<< " ";
   }
   out << "   </DataArray>" << std::endl
       << "  </Points>" << std::endl
@@ -140,136 +140,106 @@ void printParaviewSnapshot() {
 void updateBody() {
   maxV   = 0.0;
   minDx  = std::numeric_limits<double>::max();
-
-  double* distances = new double[(NumberOfBodies * (NumberOfBodies - 1)) / 2];
-  double **forces = new double*[3]; // each array within this pointer stores forces (array) in a direction [x, y, z]
-
-  // appending empty () to the new operator initialises data
-  for (int dim = 0; dim < 3; dim++) forces[dim] = new double[NumberOfBodies]();
-
+  double **forces = new double*[NumberOfBodies]; // cleanup forces into one pointer for nicer code
+  // appending empty () to the new operator initialises with 0
+  for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3]();
+  // convention: always arr[i][dim]
   double diameter = 0.2;
-
   int numBuckets = 10;
-  double vBucket = maxV / numBuckets;
-  int* particleInBucket = new int[NumberOfBodies];
-  
+  double vBucket = 10 / numBuckets;
+  int* particleInBucket = new int[NumberOfBodies]();
   // sort the particles into buckets based on velocity
-  // this would probably be way more efficient with a vec3 but I dont know if it's allowed
-  for (int b = 1; b < numBuckets+1; b++) 
+  for (int b = 1; b < numBuckets+1; b++)
     for (int p = 0; p < NumberOfBodies; p++) {
-      if (particleInBucket[p]) continue; // if we've assigned a bucket, skip this particle
+      // if we've assigned a bucket, skip this particle
+      if (particleInBucket[p]) continue;
       else if (sqrt(v[p][0]*v[p][0] + v[p][1]*v[p][1] + v[p][2]*v[p][2]) <
 	       (b+1)*vBucket) particleInBucket[p] = b;
     }
-
-  // for each particle
-  for (int p = 0; p < NumberOfBodies; p++) {
-    // do this instruction particleInBucket[p] times
-    double oldTimeStepSize = timeStepSize;
-    timeStepSize /= particleInBucket[p];
-    for (int iter = 0; iter < particleInBucket[p]; iter++) {
-      int distStore = 0;
-      int distFetch = 0;
-
-      // work out the jth particles forces
-      for (int j = 0; j < NumberOfBodies; j++) {
-	// iterate over (i-1) other particles
-	for (int i = 0; i < NumberOfBodies; i++) { 
-	  if (i == j) continue; // skip calculating particle's force on itself
-	  double distance;
-	  // if i < j then we have already cached the result
-	  if (i < j) {
-	    distance = distances[distFetch];
-	    distFetch++;
-	  } else {
-	    // uncached: find distance between the jth and ith particle
-	    distance = sqrt((x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) +
-			    (x[j][1]-x[i][1]) * (x[j][1]-x[i][1]) +
-			    (x[j][2]-x[i][2]) * (x[j][2]-x[i][2]));
-	    distances[distStore] = distance;
-	    distStore++;
-	  }
-
-	  //
-	  // check for collisions
-	  //
-	  if (distance < diameter) {
-	    int first, last;
-	    if (i < j) {
-	      first = i;
-	      last = j;
-	    } else {
-	      first = j;
-	      last = i;
+  for (int bucket = 1; bucket < numBuckets+1; bucket++) {
+    int j = 0;
+    // find all the particles belonging to the bucket
+    for (int particle = j; particle < NumberOfBodies; particle++) {
+      if (particleInBucket[particle] == bucket) {
+	j = particle;
+	double oldTimeStepSize = timeStepSize;
+	timeStepSize /= particleInBucket[j];
+	// split dt into particleInBucket[j] portions, then perform them
+	for (int iter = 0; iter < particleInBucket[j]; iter++) {
+	  for (int i = 0; i < NumberOfBodies; i++) {
+	    if (i == j) continue;
+	    double distanceSquared = 0;
+	    // find distance between the jth and ith particle
+	    for (int dim = 0; dim < 3; dim++) distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
+	    std::cout << distanceSquared << std::endl;
+	    double distance = std::sqrt(distanceSquared);
+	    for (int dim = 0; dim < 3; dim++) {
+	      // x,y,z force exerted on j by i
+	      forces[j][dim] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / (distanceSquared * distance);
+	      // we can also apply the force of i on j (the same but reversed)
+	      /* forces[i][dim] -= forces[j][dim]; */
 	    }
-	    // update velocity and position of the first index particle
-	    for (int dim = 0; dim < 3; dim++) v[first][dim] = v[i][dim]*mass[i]/(mass[i]+mass[j]) +
-						v[j][dim]*mass[j]/(mass[i]+mass[j]);
-	    for (int dim = 0; dim < 3; dim++) x[first][dim]= x[i][dim]*mass[i]/(mass[i]+mass[j]) +
-						x[j][dim]*mass[j]/(mass[i]+mass[j]);
-	    mass[first] += mass[last];
-	    // shift values s.t. positions, masses and velocities are maintained, allowing for safe removal of the redundant particle
-	    for (int k = last+1; k < NumberOfBodies; k++) {
-	      v[k-1] = v[k];
-	      x[k-1][0] = x[k][0];
-	      x[k-1][1] = x[k][1];
-	      x[k-1][2] = x[k][2];
-	      mass[k-1] = mass[k];
+	    // check for collisions
+	    if (distanceSquared < diameter*diameter) {
+	      std::cout << "collision!" << std::endl;
+	      // conserve momentum
+	      for (int dim = 0; dim < 3; dim++) {
+		v[j][dim] = v[i][dim] * mass[i] / (mass[i]+mass[j]) + v[j][dim] * mass[j] / (mass[i]+mass[j]); // change in velocity as a result of fusion
+		x[j][dim] = x[i][dim] * mass[i] / (mass[i]+mass[j]) + x[j][dim] * mass[j] / (mass[i]+mass[j]); // update the position (somewhere in the middle, depends on masses)
+	      }
+	      mass[i] += mass[j]; // sum masses of collidants (is that a word? it is now)
+	      // overwrite last collidant with the (NumberOfBodies-1)th particle and trim redundant particle
+	      const int end = --NumberOfBodies;
+	      for (int dim = 0; dim < 3; dim++) {
+		x[i][dim] = x[end][dim];
+		v[i][dim] = v[end][dim];
+		forces[i][dim] = forces[end][dim];
+	      }
+	      mass[i] = mass[end];
+	      // go back an iter to avoid overlooking a particle
+	      i--;
 	    }
-	    NumberOfBodies--;
+	    // save minDx
+	    minDx = std::min(minDx, distance);
 	  }
-      
 	}
-
-	// x,y,z forces acting on particle j
-	for (int dim = 0; dim < 3; dim++) forces[dim][j] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / distance / distance / distance;
-	// save minDx
-	minDx = std::min(minDx, distance);
+	for (int dim = 0; dim < 3; dim++) {
+	  x[j][dim] += timeStepSize * v[j][dim];
+	  v[j][dim] += timeStepSize * forces[j][dim] / mass[j];
+	}
+	maxV = std::max(std::sqrt(v[j][0]*v[j][0] + v[j][1]*v[j][1] + v[j][2]*v[j][2]), maxV);
+	timeStepSize = oldTimeStepSize;
       }
-  
-      // if we're on the last particle
-      if (NumberOfBodies == 1) {
-	std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
-	std::exit(0);
-      }
-
-      // update position of every particle according to its velocity
-      for (int i = 0; i < NumberOfBodies; i++) {
-	for (int dim = 0; dim < 3; dim++) x[i][dim] = x[i][dim] + timeStepSize * v[i][dim];
-	for (int dim = 0; dim < 3; dim++) v[i][dim] += timeStepSize * forces[dim][i] / mass[i];
-	maxV = std::sqrt(v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]);
-      }
-
-      t += timeStepSize;
-
-      for (int dim = 0; dim < 3; dim++) delete[] forces[dim];
-      delete[] forces;
     }
-    
-    timeStepSize = oldTimeStepSize;
   }
+
+  t += timeStepSize;
+  // deallocate all of our memory to avoid leaks
+  for (int dim = 0; dim < 3; dim++) delete[] forces[dim];
+  delete[] forces;
+  delete[] particleInBucket;
 }
 
 
 /**
- * Main routine.
+ * main routine.
  *
- * Not to be changed in assignment.
+ * not to be changed in assignment.
  */
 int main(int argc, char** argv) {
   if (argc==1) {
     std::cerr << "usage: " + std::string(argv[0]) + " snapshot final-time dt objects" << std::endl
-              << "  snapshot        interval after how many time units to plot. Use 0 to switch off plotting" << std::endl
-              << "  final-time      simulated time (greater 0)" << std::endl
-              << "  dt              time step size (greater 0)" << std::endl
-              << std::endl
-              << "Examples:" << std::endl
-              << "0.01  100.0  0.001    0.0 0.0 0.0  1.0 0.0 0.0  1.0 \t One body moving form the coordinate system's centre along x axis with speed 1" << std::endl
-              << "0.01  100.0  0.001    0.0 0.0 0.0  1.0 0.0 0.0  1.0     0.0 1.0 0.0  1.0 0.0 0.0  1.0  \t One spiralling around the other one" << std::endl
-              << "0.01  100.0  0.001    3.0 0.0 0.0  0.0 1.0 0.0  0.4     0.0 0.0 0.0  0.0 0.0 0.0  0.2     2.0 0.0 0.0  0.0 0.0 0.0  1.0 \t Three body setup from first lecture" << std::endl
-              << "0.01  100.0  0.001    3.0 0.0 0.0  0.0 1.0 0.0  0.4     0.0 0.0 0.0  0.0 0.0 0.0  0.2     2.0 0.0 0.0  0.0 0.0 0.0  1.0     2.0 1.0 0.0  0.0 0.0 0.0  1.0     2.0 0.0 1.0  0.0 0.0 0.0  1.0 \t Five body setup" << std::endl
-              << std::endl
-              << "In this naive code, only the first body moves" << std::endl;
+	      << "  snapshot        interval after how many time units to plot. use 0 to switch off plotting" << std::endl
+	      << "  final-time      simulated time (greater 0)" << std::endl
+	      << "  dt              time step size (greater 0)" << std::endl
+	      << std::endl
+	      << "examples:" << std::endl
+	      << "0.01  100.0  0.001    0.0 0.0 0.0  1.0 0.0 0.0  1.0 \t one body moving form the coordinate system's centre along x axis with speed 1" << std::endl
+	      << "0.01  100.0  0.001    0.0 0.0 0.0  1.0 0.0 0.0  1.0     0.0 1.0 0.0  1.0 0.0 0.0  1.0  \t one spiralling around the other one" << std::endl
+	      << "0.01  100.0  0.001    3.0 0.0 0.0  0.0 1.0 0.0  0.4     0.0 0.0 0.0  0.0 0.0 0.0  0.2     2.0 0.0 0.0  0.0 0.0 0.0  1.0 \t three body setup from first lecture" << std::endl
+	      << "0.01  100.0  0.001    3.0 0.0 0.0  0.0 1.0 0.0  0.4     0.0 0.0 0.0  0.0 0.0 0.0  0.2     2.0 0.0 0.0  0.0 0.0 0.0  1.0     2.0 1.0 0.0  0.0 0.0 0.0  1.0     2.0 0.0 1.0  0.0 0.0 0.0  1.0 \t five body setup" << std::endl
+	      << std::endl
+	      << "in this naive code, only the first body moves" << std::endl;
 
     return -1;
   }
@@ -300,13 +270,19 @@ int main(int argc, char** argv) {
     if (t >= tPlot) {
       printParaviewSnapshot();
       std::cout << "plot next snapshot"
-      		    << ",\t time step=" << timeStepCounter
-      		    << ",\t t="         << t
-      				<< ",\t dt="        << timeStepSize
-      				<< ",\t v_max="     << maxV
-      				<< ",\t dx_min="    << minDx
-      				<< std::endl;
+		    << ",\t time step=" << timeStepCounter
+		    << ",\t t="         << t
+				<< ",\t dt="        << timeStepSize
+				<< ",\t v_max="     << maxV
+				<< ",\t dx_min="    << minDx
+				<< std::endl;
 
+      // if we're on the last particle
+      if (NumberOfBodies < 2) {
+	std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
+	closeParaviewVideoFile();
+	std::exit(0);
+      }
       tPlot += tPlotDelta;
     }
   }
