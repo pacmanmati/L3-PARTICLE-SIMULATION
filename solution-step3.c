@@ -138,6 +138,8 @@ void printParaviewSnapshot() {
  * This is the only operation you are allowed to change in the assignment.
  */
 void updateBody() {
+  int numBuckets = 10;
+  double vBucket = maxV / numBuckets;
   maxV   = 0.0;
   minDx  = std::numeric_limits<double>::max();
   double **forces = new double*[NumberOfBodies]; // cleanup forces into one pointer for nicer code
@@ -145,8 +147,6 @@ void updateBody() {
   for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3]();
   // convention: always arr[i][dim]
   double diameter = 0.2;
-  int numBuckets = 10;
-  double vBucket = 10 / numBuckets;
   int* particleInBucket = new int[NumberOfBodies]();
   // sort the particles into buckets based on velocity
   for (int b = 1; b < numBuckets+1; b++)
