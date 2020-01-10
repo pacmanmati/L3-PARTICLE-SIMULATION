@@ -12,7 +12,7 @@ sol3:
 	g++ -O3 --std=c++11 solution-step3.c -o bin/sol3/sol3
 sol4:
 	mkdir -p bin/sol4
-	g++ -O3 --std=c++11 solution-step4.c -o bin/sol4/sol4
+	g++ -O3 --std=c++11 solution-step4.c -o bin/sol4/sol4 -fopenmp
 sol5: # pdf
 	pdflatex sol4.tex -output-directory latex/
 sol6:
