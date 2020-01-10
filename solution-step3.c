@@ -166,6 +166,8 @@ void updateBody() {
 	timeStepSize /= particleInBucket[j];
 	// split dt into particleInBucket[j] portions, then perform them
 	for (int iter = 0; iter < particleInBucket[j]; iter++) {
+	  // zero force every partial timestep
+	  for (int dim = 0; dim < 3; dim++) forces[j][dim] = 0;
 	  for (int i = 0; i < NumberOfBodies; i++) {
 	    if (i == j) continue;
 	    double distanceSquared = 0;
@@ -173,15 +175,12 @@ void updateBody() {
 	    for (int dim = 0; dim < 3; dim++) distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
 	    std::cout << distanceSquared << std::endl;
 	    double distance = std::sqrt(distanceSquared);
-	    for (int dim = 0; dim < 3; dim++) {
-	      // x,y,z force exerted on j by i
+	    // x,y,z force exerted on j by i
+	    for (int dim = 0; dim < 3; dim++)
 	      forces[j][dim] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / (distanceSquared * distance);
-	      // we can also apply the force of i on j (the same but reversed)
-	      /* forces[i][dim] -= forces[j][dim]; */
-	    }
 	    // check for collisions
 	    if (distanceSquared < diameter*diameter) {
-	      std::cout << "collision!" << std::endl;
+	      /* std::cout << "collision!" << std::endl; */
 	      // conserve momentum
 	      for (int dim = 0; dim < 3; dim++) {
 		v[j][dim] = v[i][dim] * mass[i] / (mass[i]+mass[j]) + v[j][dim] * mass[j] / (mass[i]+mass[j]); // change in velocity as a result of fusion
