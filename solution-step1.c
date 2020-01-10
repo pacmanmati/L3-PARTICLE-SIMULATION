@@ -140,67 +140,39 @@ void printParaviewSnapshot() {
 void updateBody() {
   maxV   = 0.0;
   minDx  = std::numeric_limits<double>::max();
-
-  double* distances = new double[(NumberOfBodies * (NumberOfBodies - 1)) / 2];
-
-  double* force0 = new double[NumberOfBodies]; // force along x direction
-  double* force1 = new double[NumberOfBodies]; // force along y direction
-  double* force2 = new double[NumberOfBodies]; // force along z direction
-
-  // zero all the forces every iteration
-  for (int i = 0; i < NumberOfBodies; i++) {
-    force0[i] = 0.0;
-    force1[i] = 0.0;
-    force2[i] = 0.0;
-  }
-
-  int distStore = 0;
-  int distFetch = 0;
-
+  double **forces = new double*[NumberOfBodies]; // cleanup forces into one pointer for nicer code
+  // appending empty () to the new operator initialises with 0
+  for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3]();
+  // convention: always arr[i][dim]
   for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
-    for (int i = 0; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
-      if (i == j) continue; // skip working out the effects of a particle on itself, reduntant calculation
-      double distance;
-      if (i < j) {
-	// if i < j then we have already cached the result
-	distance = distances[distFetch];
-	distFetch++;
-      } else {
-	// uncached: find distance between the jth and ith particle
-	distance = sqrt((x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) +
-				     (x[j][1]-x[i][1]) * (x[j][1]-x[i][1]) +
-				     (x[j][2]-x[i][2]) * (x[j][2]-x[i][2]));
-	distances[distStore] = distance;
-	distStore++;
+    for (int i = j+1; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
+      double distanceSquared = 0;
+      // find distance between the jth and ith particle
+      for (int dim = 0; dim < 3; dim++) distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
+      double distance = std::sqrt(distanceSquared);
+      for (int dim = 0; dim < 3; dim++) {
+	// x,y,z force exerted on j by i
+	forces[j][dim] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / (distanceSquared * distance);
+	// we can also apply the force of i on j (the same but reversed)
+	forces[i][dim] -= forces[j][dim];
       }
-      // x,y,z forces acting on particle j
-      force0[j] += (x[i][0]-x[j][0]) * mass[i]*mass[j] / distance / distance / distance ;
-      force1[j] += (x[i][1]-x[j][1]) * mass[i]*mass[j] / distance / distance / distance ;
-      force2[j] += (x[i][2]-x[j][2]) * mass[i]*mass[j] / distance / distance / distance ;
       // save minDx
       minDx = std::min(minDx, distance);
     }
   }
-
+  // once we have all of our forces:
+  // update pos and vel of each particle
   for (int i = 0; i < NumberOfBodies; i++) {
-    x[i][0] = x[i][0] + timeStepSize * v[i][0];
-    x[i][1] = x[i][1] + timeStepSize * v[i][1];
-    x[i][2] = x[i][2] + timeStepSize * v[i][2];
-
-    /* int massi = mass[i] // see if this makes a difference, the compiler should optimise it */
-
-    v[i][0] = v[i][0] + timeStepSize * force0[i] / mass[i];
-    v[i][1] = v[i][1] + timeStepSize * force1[i] / mass[i];
-    v[i][2] = v[i][2] + timeStepSize * force2[i] / mass[i];
-
-    maxV = std::max(std::sqrt( v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2] ), maxV);
+    for (int dim = 0; dim < 3; dim++) {
+      x[i][dim] += timeStepSize * v[i][dim];
+      v[i][dim] += timeStepSize * forces[i][dim] / mass[i];
+    }
+    maxV = std::max(std::sqrt(v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]), maxV);
   }
-
   t += timeStepSize;
-
-  delete[] force0;
-  delete[] force1;
-  delete[] force2;
+  // deallocate all of our memory to avoid leaks
+  for (int i = 0; i < NumberOfBodies; i++) delete[] forces[i];
+  delete[] forces;
 }
 
 
