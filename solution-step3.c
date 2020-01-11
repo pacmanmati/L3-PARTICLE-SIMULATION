@@ -212,7 +212,7 @@ void updateBody() {
 	maxV = std::max(std::sqrt(v[j][0]*v[j][0] + v[j][1]*v[j][1] + v[j][2]*v[j][2]), maxV);
       }
     }
-    timeStepSize = oldTimeStepSize; // revert to old bucketsize
+    timeStepSize = oldTimeStepSize; // revert to old timestepsize
   }
 
   t += timeStepSize;
