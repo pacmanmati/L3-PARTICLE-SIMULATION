@@ -138,7 +138,6 @@ void printParaviewSnapshot() {
  * This is the only operation you are allowed to change in the assignment.
  */
 void updateBody() {
-  /* std::cout << "update" << std::endl; */
   int numBuckets = 10;
   double vBucket = maxV / numBuckets;
   maxV   = 0.0;
@@ -159,9 +158,7 @@ void updateBody() {
     }
   // place all unsorted particles into the first bucket
   for (int p = 0; p < NumberOfBodies; p++) if (!particleInBucket[p]) particleInBucket[p] = 1;
-  for (int i = 0; i < NumberOfBodies; i++) std::cout << "particle " << i << " in bucket: " << particleInBucket[i] << std::endl;
   for (int bucket = 1; bucket < numBuckets+1; bucket++) {
-    bool allSkipped = true;
     int j = 0;
     double oldTimeStepSize = timeStepSize;
     timeStepSize /= std::pow(2, bucket - 1);
@@ -170,8 +167,6 @@ void updateBody() {
       if (particleInBucket[particle] != bucket) {
 	continue;
       }
-      allSkipped = false;
-      int bCounter = 0;
       j = particle;
       // split dt into particleInBucket[j] portions, then perform them
       for (int iter = 0; iter < std::pow(2, bucket-1); iter++) {
@@ -182,10 +177,8 @@ void updateBody() {
 	  double distanceSquared = 0;
 	  // find distance between the jth and ith particle
 	  for (int dim = 0; dim < 3; dim++) {
-	    /* std::cout << "calculated comp: " << x[j][dim] << std::endl; */
 	    distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
 	  }
-	  /* std::cout << "distance squared: " << distanceSquared << std::endl; */
 	  double distance = std::sqrt(distanceSquared);
 	  // x,y,z force exerted on j by i
 	  for (int dim = 0; dim < 3; dim++)
@@ -217,12 +210,8 @@ void updateBody() {
 	  v[j][dim] += timeStepSize * forces[j][dim] / mass[j];
 	}
 	maxV = std::max(std::sqrt(v[j][0]*v[j][0] + v[j][1]*v[j][1] + v[j][2]*v[j][2]), maxV);
-	bCounter++;
       }
-      std::cout << "bucket " << bucket << ": " << bCounter << std::endl;
     }
-    if (allSkipped) std::cout << "all skipped on bucket " << bucket << std::endl;
-    else std::cout << "not skipped on bucket " << bucket << std::endl;
     timeStepSize = oldTimeStepSize; // revert to old bucketsize
   }
 
@@ -282,13 +271,13 @@ int main(int argc, char** argv) {
     timeStepCounter++;
     if (t >= tPlot) {
       printParaviewSnapshot();
-      /* std::cout << "plot next snapshot" */
-      /* 		    << ",\t time step=" << timeStepCounter */
-      /* 		    << ",\t t="         << t */
-      /* 				<< ",\t dt="        << timeStepSize */
-      /* 				<< ",\t v_max="     << maxV */
-      /* 				<< ",\t dx_min="    << minDx */
-      /* 				<< std::endl; */
+      std::cout << "plot next snapshot"
+      		    << ",\t time step=" << timeStepCounter
+      		    << ",\t t="         << t
+      				<< ",\t dt="        << timeStepSize
+      				<< ",\t v_max="     << maxV
+      				<< ",\t dx_min="    << minDx
+      				<< std::endl;
 
       // if we're on the last particle
       if (NumberOfBodies < 2) {
