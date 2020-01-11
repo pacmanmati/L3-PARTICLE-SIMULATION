@@ -175,7 +175,6 @@ void updateBody() {
   delete[] forces;
 }
 
-
 /**
  * Main routine.
  *

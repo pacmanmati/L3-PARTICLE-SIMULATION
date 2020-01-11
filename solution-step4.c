@@ -144,8 +144,10 @@ void updateBody() {
   // appending empty () to the new operator initialises with 0
   for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3]();
   // convention: always arr[i][dim]
+
+  #pragma omp parallel for 
   for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
-#pragma omp parallel for reduction(+:forces[:NumberOfBodies][0], forces[:NumberOfBodies][1], forces[:NumberOfBodies][2]) reduction(max:maxV) reduction(min:minDx)
+/* #pragma omp parallel for reduction(+:forces[:NumberOfBodies][:3]) reduction(max:maxV) reduction(min:minDx) */
     for (int i = j+1; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
       double distanceSquared = 0;
       // find distance between the jth and ith particle
@@ -175,7 +177,6 @@ void updateBody() {
   for (int i = 0; i < NumberOfBodies; i++) delete[] forces[i];
   delete[] forces;
 }
-
 
 /**
  * Main routine.
