@@ -138,6 +138,7 @@ void printParaviewSnapshot() {
  * This is the only operation you are allowed to change in the assignment.
  */
 void updateBody() {
+  /* std::cout << "update" << std::endl; */
   int numBuckets = 10;
   double vBucket = maxV / numBuckets;
   maxV   = 0.0;
@@ -153,63 +154,76 @@ void updateBody() {
     for (int p = 0; p < NumberOfBodies; p++) {
       // if we've assigned a bucket, skip this particle
       if (particleInBucket[p]) continue;
-      else if (sqrt(v[p][0]*v[p][0] + v[p][1]*v[p][1] + v[p][2]*v[p][2]) <
-	       (b+1)*vBucket) particleInBucket[p] = b;
+      else if (v[p][0]*v[p][0] + v[p][1]*v[p][1] + v[p][2]*v[p][2] <
+	       (b+1)*vBucket*vBucket) particleInBucket[p] = b;
     }
+  // place all unsorted particles into the first bucket
+  for (int p = 0; p < NumberOfBodies; p++) if (!particleInBucket[p]) particleInBucket[p] = 1;
+  for (int i = 0; i < NumberOfBodies; i++) std::cout << "particle " << i << " in bucket: " << particleInBucket[i] << std::endl;
   for (int bucket = 1; bucket < numBuckets+1; bucket++) {
+    bool allSkipped = true;
     int j = 0;
+    double oldTimeStepSize = timeStepSize;
+    timeStepSize /= std::pow(2, bucket - 1);
     // find all the particles belonging to the bucket
     for (int particle = j; particle < NumberOfBodies; particle++) {
-      if (particleInBucket[particle] == bucket) {
-	j = particle;
-	double oldTimeStepSize = timeStepSize;
-	timeStepSize /= particleInBucket[j];
-	// split dt into particleInBucket[j] portions, then perform them
-	for (int iter = 0; iter < particleInBucket[j]; iter++) {
-	  // zero force every partial timestep
-	  for (int dim = 0; dim < 3; dim++) forces[j][dim] = 0;
-	  for (int i = 0; i < NumberOfBodies; i++) {
-	    if (i == j) continue;
-	    double distanceSquared = 0;
-	    // find distance between the jth and ith particle
-	    for (int dim = 0; dim < 3; dim++) distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
-	    std::cout << distanceSquared << std::endl;
-	    double distance = std::sqrt(distanceSquared);
-	    // x,y,z force exerted on j by i
-	    for (int dim = 0; dim < 3; dim++)
-	      forces[j][dim] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / (distanceSquared * distance);
-	    // check for collisions
-	    if (distanceSquared < diameter*diameter) {
-	      /* std::cout << "collision!" << std::endl; */
-	      // conserve momentum
-	      for (int dim = 0; dim < 3; dim++) {
-		v[j][dim] = v[i][dim] * mass[i] / (mass[i]+mass[j]) + v[j][dim] * mass[j] / (mass[i]+mass[j]); // change in velocity as a result of fusion
-		x[j][dim] = x[i][dim] * mass[i] / (mass[i]+mass[j]) + x[j][dim] * mass[j] / (mass[i]+mass[j]); // update the position (somewhere in the middle, depends on masses)
-	      }
-	      mass[i] += mass[j]; // sum masses of collidants (is that a word? it is now)
-	      // overwrite last collidant with the (NumberOfBodies-1)th particle and trim redundant particle
-	      const int end = --NumberOfBodies;
-	      for (int dim = 0; dim < 3; dim++) {
-		x[i][dim] = x[end][dim];
-		v[i][dim] = v[end][dim];
-		forces[i][dim] = forces[end][dim];
-	      }
-	      mass[i] = mass[end];
-	      // go back an iter to avoid overlooking a particle
-	      i--;
-	    }
-	    // save minDx
-	    minDx = std::min(minDx, distance);
+      if (particleInBucket[particle] != bucket) {
+	continue;
+      }
+      allSkipped = false;
+      int bCounter = 0;
+      j = particle;
+      // split dt into particleInBucket[j] portions, then perform them
+      for (int iter = 0; iter < std::pow(2, bucket-1); iter++) {
+	// zero force every partial timestep
+	for (int dim = 0; dim < 3; dim++) forces[j][dim] = 0;
+	for (int i = 0; i < NumberOfBodies; i++) {
+	  if (i == j) continue;
+	  double distanceSquared = 0;
+	  // find distance between the jth and ith particle
+	  for (int dim = 0; dim < 3; dim++) {
+	    /* std::cout << "calculated comp: " << x[j][dim] << std::endl; */
+	    distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
 	  }
+	  /* std::cout << "distance squared: " << distanceSquared << std::endl; */
+	  double distance = std::sqrt(distanceSquared);
+	  // x,y,z force exerted on j by i
+	  for (int dim = 0; dim < 3; dim++)
+	    forces[j][dim] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / (distanceSquared * distance);
+	  // check for collisions
+	  if (distanceSquared < diameter*diameter) {
+	    // conserve momentum
+	    for (int dim = 0; dim < 3; dim++) {
+	      v[j][dim] = v[i][dim] * mass[i] / (mass[i]+mass[j]) + v[j][dim] * mass[j] / (mass[i]+mass[j]); // change in velocity as a result of fusion
+	      x[j][dim] = x[i][dim] * mass[i] / (mass[i]+mass[j]) + x[j][dim] * mass[j] / (mass[i]+mass[j]); // update the position (somewhere in the middle, depends on masses)
+	    }
+	    mass[i] += mass[j]; // sum masses of collidants (is that a word? it is now)
+	    // overwrite last collidant with the (NumberOfBodies-1)th particle and trim redundant particle
+	    const int end = --NumberOfBodies;
+	    for (int dim = 0; dim < 3; dim++) {
+	      x[i][dim] = x[end][dim];
+	      v[i][dim] = v[end][dim];
+	      forces[i][dim] = forces[end][dim];
+	    }
+	    mass[i] = mass[end];
+	    // go back an iter to avoid overlooking a particle
+	    i--;
+	  }
+	  // save minDx
+	  minDx = std::min(minDx, distance);
 	}
 	for (int dim = 0; dim < 3; dim++) {
 	  x[j][dim] += timeStepSize * v[j][dim];
 	  v[j][dim] += timeStepSize * forces[j][dim] / mass[j];
 	}
 	maxV = std::max(std::sqrt(v[j][0]*v[j][0] + v[j][1]*v[j][1] + v[j][2]*v[j][2]), maxV);
-	timeStepSize = oldTimeStepSize;
+	bCounter++;
       }
+      std::cout << "bucket " << bucket << ": " << bCounter << std::endl;
     }
+    if (allSkipped) std::cout << "all skipped on bucket " << bucket << std::endl;
+    else std::cout << "not skipped on bucket " << bucket << std::endl;
+    timeStepSize = oldTimeStepSize; // revert to old bucketsize
   }
 
   t += timeStepSize;
@@ -268,13 +282,13 @@ int main(int argc, char** argv) {
     timeStepCounter++;
     if (t >= tPlot) {
       printParaviewSnapshot();
-      std::cout << "plot next snapshot"
-		    << ",\t time step=" << timeStepCounter
-		    << ",\t t="         << t
-				<< ",\t dt="        << timeStepSize
-				<< ",\t v_max="     << maxV
-				<< ",\t dx_min="    << minDx
-				<< std::endl;
+      /* std::cout << "plot next snapshot" */
+      /* 		    << ",\t time step=" << timeStepCounter */
+      /* 		    << ",\t t="         << t */
+      /* 				<< ",\t dt="        << timeStepSize */
+      /* 				<< ",\t v_max="     << maxV */
+      /* 				<< ",\t dx_min="    << minDx */
+      /* 				<< std::endl; */
 
       // if we're on the last particle
       if (NumberOfBodies < 2) {
