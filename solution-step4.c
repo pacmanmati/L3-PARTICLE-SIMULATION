@@ -143,44 +143,58 @@ void updateBody() {
   /* double **forces = new double*[NumberOfBodies]; // cleanup forces into one pointer for nicer code */
   /* double *fpool = new double[3*NumberOfBodies](); */
   /* for (int i = 0; i < NumberOfBodies; i++, fpool+=3) forces[i] = fpool; */
-  auto forces = new double[NumberOfBodies][3]();
+  /* auto forces = new double[3][n](); */
+  // no idea how to make the single forces pointer work with parallelisation for this step so it's a bit different from step 1
+  double *force0 = new double[NumberOfBodies]();
+  double *force1 = new double[NumberOfBodies]();
+  double *force2 = new double[NumberOfBodies]();
   // appending empty () to the new operator initialises with 0
   /* for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3](); */
   // convention: always arr[i][dim]
 
-#pragma omp for
+#pragma omp parallel for reduction(+:force0[:NumberOfBodies], force1[:NumberOfBodies], force2[:NumberOfBodies]) reduction(min:minDx) schedule(dynamic, 1)
   for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
-#pragma omp parallel for reduction(+:forces[:NumberOfBodies][:3]) reduction(min:minDx)
+/* #pragma omp parallel for reduction(+:forces[j:NumberOfBodies][:3]) reduction(min:minDx) schedule(dynamic, 1) */
     for (int i = j+1; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
       double distanceSquared = 0;
       // find distance between the jth and ith particle
-      for (int dim = 0; dim < 3; dim++) distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
+      distanceSquared += (x[j][0]-x[i][0]) * (x[j][0]-x[i][0]) + (x[j][1]-x[i][1]) * (x[j][1]-x[i][1]) + (x[j][2]-x[i][2]) * (x[j][2]-x[i][2]);
+      /* for (int dim = 0; dim < 3; dim++) distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]); */
       double distance = std::sqrt(distanceSquared);
-      for (int dim = 0; dim < 3; dim++) {
-	// x,y,z force exerted on j by i
-	forces[j][dim] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / (distanceSquared * distance);
-	// we can also apply the force of i on j (the same but reversed)
-	forces[i][dim] -= forces[j][dim];
-      }
+      force0[i] += (x[j][0]-x[i][0]) * mass[i]*mass[j] / distance / distance / distance;
+      force1[i] += (x[j][1]-x[i][1]) * mass[i]*mass[j] / distance / distance / distance;
+      force2[i] += (x[j][2]-x[i][2]) * mass[i]*mass[j] / distance / distance / distance;
+      force0[j] -= (x[j][0]-x[i][0]) * mass[i]*mass[j] / distance / distance / distance;
+      force1[j] -= (x[j][1]-x[i][1]) * mass[i]*mass[j] / distance / distance / distance;
+      force2[j] -= (x[j][2]-x[i][2]) * mass[i]*mass[j] / distance / distance / distance;
       // save minDx
       minDx = std::min(minDx, distance);
     }
   }
   // once we have all of our forces:
   // update pos and vel of each particle
-#pragma omp parallel for reduction(max:maxV)
+#pragma omp parallel for reduction(max:maxV) schedule(dynamic, 1)
   for (int i = 0; i < NumberOfBodies; i++) {
-    for (int dim = 0; dim < 3; dim++) {
-      x[i][dim] += timeStepSize * v[i][dim];
-      v[i][dim] += timeStepSize * forces[i][dim] / mass[i];
-    }
+    x[i][0] += timeStepSize *v[i][0];
+    x[i][1] += timeStepSize *v[i][1];
+    x[i][2] += timeStepSize *v[i][2];
+
+    v[i][0] += timeStepSize * force0[i] / mass[i];
+    v[i][1] += timeStepSize * force1[i] / mass[i];
+    v[i][2] += timeStepSize * force2[i] / mass[i];
+    /* for (int dim = 0; dim < 3; dim++) { */
+    /*   x[i][dim] += timeStepSize * v[i][dim]; */
+    /*   v[i][dim] += timeStepSize * forces[i][dim] / mass[i]; */
+    /* } */
     maxV = std::max(std::sqrt(v[i][0]*v[i][0] + v[i][1]*v[i][1] + v[i][2]*v[i][2]), maxV);
   }
   t += timeStepSize;
   // deallocate all of our memory to avoid leaks
   /* for (int i = 0; i < NumberOfBodies; i++) delete[] forces[i]; */
   /* delete [] forces[0]; */
-  delete [] forces;
+  delete [] force0;
+  delete [] force1;
+  delete [] force2;
 }
 
 /**
