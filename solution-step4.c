@@ -140,14 +140,17 @@ void printParaviewSnapshot() {
 void updateBody() {
   maxV   = 0.0;
   minDx  = std::numeric_limits<double>::max();
-  double **forces = new double*[NumberOfBodies]; // cleanup forces into one pointer for nicer code
+  /* double **forces = new double*[NumberOfBodies]; // cleanup forces into one pointer for nicer code */
+  /* double *fpool = new double[3*NumberOfBodies](); */
+  /* for (int i = 0; i < NumberOfBodies; i++, fpool+=3) forces[i] = fpool; */
+  auto forces = new double[NumberOfBodies][3]();
   // appending empty () to the new operator initialises with 0
-  for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3]();
+  /* for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3](); */
   // convention: always arr[i][dim]
 
-  #pragma omp parallel for 
+#pragma omp for
   for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
-/* #pragma omp parallel for reduction(+:forces[:NumberOfBodies][:3]) reduction(max:maxV) reduction(min:minDx) */
+#pragma omp parallel for reduction(+:forces[:NumberOfBodies][:3]) reduction(min:minDx)
     for (int i = j+1; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
       double distanceSquared = 0;
       // find distance between the jth and ith particle
@@ -165,6 +168,7 @@ void updateBody() {
   }
   // once we have all of our forces:
   // update pos and vel of each particle
+#pragma omp parallel for reduction(max:maxV)
   for (int i = 0; i < NumberOfBodies; i++) {
     for (int dim = 0; dim < 3; dim++) {
       x[i][dim] += timeStepSize * v[i][dim];
@@ -174,8 +178,9 @@ void updateBody() {
   }
   t += timeStepSize;
   // deallocate all of our memory to avoid leaks
-  for (int i = 0; i < NumberOfBodies; i++) delete[] forces[i];
-  delete[] forces;
+  /* for (int i = 0; i < NumberOfBodies; i++) delete[] forces[i]; */
+  /* delete [] forces[0]; */
+  delete [] forces;
 }
 
 /**

@@ -145,7 +145,8 @@ void updateBody() {
   for (int i = 0; i < NumberOfBodies; i++) forces[i] = new double[3]();
   // convention: always arr[i][dim]
   for (int j = 0; j < NumberOfBodies; j++) { // work out the jth particles forces
-    for (int i = j+1; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
+    for (int i = 0; i < NumberOfBodies; i++) { // iterate over (i-1) other particles
+      if (i == j) continue;
       double distanceSquared = 0;
       // find distance between the jth and ith particle
       for (int dim = 0; dim < 3; dim++) distanceSquared += (x[j][dim]-x[i][dim]) * (x[j][dim]-x[i][dim]);
@@ -154,7 +155,7 @@ void updateBody() {
 	// x,y,z force exerted on j by i
 	forces[j][dim] += (x[i][dim]-x[j][dim]) * mass[i]*mass[j] / (distanceSquared * distance);
 	// we can also apply the force of i on j (the same but reversed)
-	forces[i][dim] -= forces[j][dim];
+	/* forces[i][dim] -= forces[j][dim]; */
       }
       // save minDx
       minDx = std::min(minDx, distance);
