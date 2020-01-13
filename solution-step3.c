@@ -193,6 +193,11 @@ void updateBody() {
 	    mass[i] += mass[j]; // sum masses of collidants (is that a word? it is now)
 	    // overwrite last collidant with the (NumberOfBodies-1)th particle and trim redundant particle
 	    const int end = --NumberOfBodies;
+	    // if we're on the last particle
+	    if (NumberOfBodies < 2) {
+	      std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
+	      tFinal = 0;
+	    }
 	    for (int dim = 0; dim < 3; dim++) {
 	      x[i][dim] = x[end][dim];
 	      v[i][dim] = v[end][dim];
@@ -278,13 +283,6 @@ int main(int argc, char** argv) {
       				<< ",\t v_max="     << maxV
       				<< ",\t dx_min="    << minDx
       				<< std::endl;
-
-      // if we're on the last particle
-      if (NumberOfBodies < 2) {
-	std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
-	closeParaviewVideoFile();
-	std::exit(0);
-      }
       tPlot += tPlotDelta;
     }
   }
