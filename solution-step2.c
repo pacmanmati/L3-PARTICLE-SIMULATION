@@ -171,8 +171,9 @@ void updateBody() {
 	const int end = --NumberOfBodies;
 	if (NumberOfBodies < 2) {
 	  std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
+	  std::exit(0);
 	  /* std::cout << x[0][0] << "," << x[0][1] << "," << x[0][2] << std::endl; */
-	  tFinal = 0;
+	  /* tFinal = 0; */
 	}
 	for (int dim = 0; dim < 3; dim++) {
 	  x[i][dim] = x[end][dim];

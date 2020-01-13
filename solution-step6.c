@@ -227,11 +227,6 @@ void updateBody() {
 	    // overwrite last collidant with the (NumberOfBodies-1)th particle and trim redundant particle
 	    const int end = --NumberOfBodies;
 	    // if we're on the last particle
-	    if (NumberOfBodies < 2) {
-	      std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
-	      /* tFinal = 0; */
-	      std::exit(0);
-	    }
 	    for (int dim = 0; dim < 3; dim++) {
 	      x[i][dim] = x[end][dim];
 	      v[i][dim] = v[end][dim];
@@ -240,8 +235,17 @@ void updateBody() {
 	    force1[i] = force1[end];
 	    force2[i] = force2[end];
 	    mass[i] = mass[end];
-	    // go back an iter to avoid overlooking a particle
 	    i--;
+	    if (NumberOfBodies < 2) {
+	      std::cout << "last body @ (X, Y, Z) : (" << x[0][0] << ", " << x[0][1] << ", "<< x[0][2] << ")" << std::endl;
+	      /* tFinal = 0; */
+	      /* tPlot = t+1; */
+	      /* particle = NumberOfBodies; */
+	      /* i = NumberOfBodies; */
+	      /* iter = std::pow(2, bucket-1); */
+	      /* bucket = numBuckets + 1; */
+	      std::exit(0);
+	    }
 	  }
 	}
       }
