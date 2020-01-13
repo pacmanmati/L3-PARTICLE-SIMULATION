@@ -152,6 +152,7 @@ void updateBody() {
   double diameter = 0.2;
   int* particleInBucket = new int[NumberOfBodies]();
   // sort the particles into buckets based on velocity
+#pragma omp parallel for
   for (int b = 1; b < numBuckets+1; b++)
     for (int p = 0; p < NumberOfBodies; p++) {
       // if we've assigned a bucket, skip this particle
