@@ -17,4 +17,4 @@ sol5: # pdf
 	pdflatex sol4.tex -output-directory latex/
 sol6:
 	mkdir -p bin/sol6
-	g++ -O3 --std=c++11 solution-step5.c -o bin/sol6/sol6
+	g++ -O3 --std=c++11 solution-step6.c -o bin/sol6/sol6
